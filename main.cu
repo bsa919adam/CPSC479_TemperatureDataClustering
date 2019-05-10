@@ -136,7 +136,8 @@ int main(int  argc, char *argv[]) {
     int * d_s;//variable to count how many data points change clusters between iterations
     cudaMalloc((void **)&d_s, sizeof(int));
     printf("%d\n", numDays);
-    while(*s>0){
+    int d=0;
+    while(*s>0 && d<10){
 	*s=0;//reset s value
 	cudaMemcpy(d_s, s, sizeof(int), cudaMemcpyHostToDevice);//reset d_s value
         int numB=numDays/512;
@@ -153,6 +154,7 @@ int main(int  argc, char *argv[]) {
 		}
 	}
 	printf("total threads=%d\n",*s);
+	d++;
     }
     cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
     fp=fopen("output.csv", "w");
