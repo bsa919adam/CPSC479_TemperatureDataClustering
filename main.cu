@@ -50,14 +50,10 @@ int main(int  argc, char *argv[]) {
     printf("checks done\n");
     day * data;
     char c=' ';
-    int n = 0;
     data=(day*)malloc(sizeof(struct day));
     printf("starting line skip\n");
     while((c=fgetc(fp))!='\n'){//getting rid of the title line of the file
-	printf("%c", c);
-        if(c=='\n'){
-		n=1;
-	}
+	//printf("%c", c);
 
     }
     printf("line skipped\n");
@@ -68,7 +64,7 @@ int main(int  argc, char *argv[]) {
     int month;
     int year;
     char  station[15];
-    while(fscanf(fp,"%[,]%*[,]%d%*[/]%d%*[/]%d%*[,]%d%*[,]%d",station,&month, &date, &year, &high, &low)){
+    while(fscanf(fp,"%[^,],%d/%d/%d,%d,%d",station,&month, &date, &year, &high, &low)==6){
 	numDays++;
 	data=(day*)realloc(data, sizeof(struct day) * numDays);
 	data[numDays-1].date=date;
@@ -80,7 +76,7 @@ int main(int  argc, char *argv[]) {
     }
     printf("%e\n", data[0].high);
     printf("%e\n", data[numDays-1].high);
-    
+    printf("%d\n", numDays);
 
     
  //   cudaMalloc((void **)&d_a, size);
