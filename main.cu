@@ -53,6 +53,7 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 	int numT=gridDim.x*blockDim.x;
 	int i=0;
 	int index;
+	*s=0;
 	while((index=threadIdx.x +blockIdx.x * blockDim.x+ numT*i) < numDays){
 		double min=1000;
 		for( int j=0; j< k; j++){
