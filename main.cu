@@ -21,15 +21,21 @@ typedef struct center{
 
 
 __global__ void setCenters(day* data, center* centers, int k, int numDays) {
-	__shared__ int avgx=0;
-	__shared__ int avgy=0;
-	__shared__ int n=0;
-	
+	__shared__ int nums[3];
+
+	int * avgx =nums;
+	int * avgy =&nums[1];
+	unsigned int * n=(unsigned int*)&nums[2];
+	*avgx=0;
+	*avgy=0;
+	*n=0;
+	int i =0;
+	int index;	
 	while((index=threadIdx.x + blockDim.x*i) < numDays){
 		if(data[index].cluster==blockIdx.x){
-			atomicInc(&n, -1);
-			atomicAdd(&avgx, (int)data[index].high);
-			atomicAdd(&avgy, (int)data[index].low);
+			atomicInc(n, *n+1);
+			atomicAdd(avgx, (int)data[index].high);
+			atomicAdd(avgy, (int)data[index].low);
 			
 		}
 		
@@ -37,8 +43,8 @@ __global__ void setCenters(day* data, center* centers, int k, int numDays) {
 	}
 	__syncthreads();
 	if(threadIdx.x ==0){
-		centers[blockIdx.x].x=(double)avgx/(double)n;
-		centers[blockIdx.x].y=(double)avgy/(double)n;
+		centers[blockIdx.x].x=(double)(*avgx)/(double)(*n);
+		centers[blockIdx.x].y=(double)(*avgy)/(double)(*n);
 	}
 	
 }
@@ -47,7 +53,7 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 	int numT=gridDim.x*blockDim.x;
 	int i=0;
 	int index;
-	while((index=blockIdx.x * threadIdx.x + numT*i) < numDays){
+	while((index=threadIdx.x +blockIdx.x * blockDim.x+ numT*i) < numDays){
 		double min=1000;
 		for( int j=0; j< k; j++){
 			double x=data[index].high-centers[j].x;
@@ -58,11 +64,11 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 			if(dist< min){
 				min=dist;
 				data[index].cluster=j;
-				*s++;
+				atomicInc((unsigned int*)s, (unsigned int)(*s+1));
 			}		
 		}
 		i++;
-	}
+	} 
 }
 
 int main(int  argc, char *argv[]) {
@@ -103,6 +109,7 @@ int main(int  argc, char *argv[]) {
 		data[numDays-1].year=year;
 		data[numDays-1].cluster=-1;
     }
+    fclose(fp);
     //declares data for device
     day * d_data;
     cudaMalloc((void **)&d_data, sizeof(struct day)*numDays);
@@ -127,22 +134,32 @@ int main(int  argc, char *argv[]) {
 
     int * d_s;//variable to count how many data points change clusters between iterations
     cudaMalloc((void **)&d_s, sizeof(int));
-
+    printf("%d\n", numDays);
     while(*s>0){
 	*s=0;//reset s value
 	cudaMemcpy(d_s, s, sizeof(int), cudaMemcpyHostToDevice);//reset d_s value
         int numB=numDays/512;
 	cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
 	cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
-	if(s>0){//compute new centers if any clusters changed
-		int numT=((numDays/k)/32)*32 //assigns highest 
+	if(*s>0){//compute new centers if any clusters changed
+		int numT=((numDays/k)/32)*32; //assigns highest 
  		numT>512 ? numT=512 : numT=numT;
+		printf("ceneters set anew\n");
 		setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
 	}
 	printf("total threads=%d\n",*s);
     }
-    
-    //TODO copy data back from device and then print and manipulate
+    cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
+    fp=fopen("output.csv", "w");
+    for(int i=0; i<k; i++){
+	fprintf(fp, "Cluster %d,Center,x=%f, y=%f\nDate,High,Low\n", i+1, centers[i].x, centers[i].y);
+	for(int j=0; j<numDays; j++){
+		if(i==data[j].cluster){
+			fprintf(fp, "%d/%d/%d,%f,%f,%d\n", data[j].month, data[j].date, data[j].year, data[j].high,data[j].low, data[j].cluster);
+		}
+	}
+	fprintf(fp,"\n\n");
+    }
     
        
  // cudaMemcpy(a, d_a, size, cudaMemcpyDeviceToHost);
