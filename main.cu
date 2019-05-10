@@ -25,7 +25,7 @@ __global__ void setCenters(day* data, center* centers, int k, int numDays) {
 
 	int * avgx =nums;
 	int * avgy =&nums[1];
-	unsigned int * n=(unsigned int*)&nums[2];
+	int * n=&nums[2];
 	*avgx=0;
 	*avgy=0;
 	*n=0;
@@ -33,7 +33,7 @@ __global__ void setCenters(day* data, center* centers, int k, int numDays) {
 	int index;	
 	while((index=threadIdx.x + blockDim.x*i) < numDays){
 		if(data[index].cluster==blockIdx.x){
-			atomicInc(n, numDays);
+			atomicAdd(n, 1);
 			atomicAdd(avgx, (int)data[index].high);
 			atomicAdd(avgy, (int)data[index].low);
 			
@@ -64,7 +64,7 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 			if(dist< min){
 				min=dist;
 				data[index].cluster=j;
-				atomicInc((unsigned int*)s, 10);
+				atomicAdd(s, 1);
 			}		
 		}
 		i++;
