@@ -3,35 +3,66 @@
 #include <cuda.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <math.h>
+//use high as x value low as y for clustering
 typedef struct day{
 	int month;
 	int date;
 	int year;
 	double high;
 	double low;
-	int cluster=-1;
-	int previous=-1;
+	int cluster;
 }day;
 
 typedef struct center{
-	int x;
-	int y;
+	double x;
+	double y;
 }center;
 
 
-__global__ void setCenters(int* a) {
+__global__ void setCenters(day* data, center* centers, int k, int numDays) {
+	__shared__ int avgx=0;
+	__shared__ int avgy=0;
+	__shared__ int n=0;
 	
-	int N=0;
-	for( int i=0; i< N; i++){
-		a[blockIdx.x * N + threadIdx.x] += a[blockIdx.x * N + i] * a[i * N + threadIdx.x];
+	while((index=threadIdx.x + blockDim.x*i) < numDays){
+		if(data[index].cluster==blockIdx.x){
+			atomicInc(&n, -1);
+			atomicAdd(&avgx, (int)data[index].high);
+			atomicAdd(&avgy, (int)data[index].low);
+			
+		}
+		
+		i++;
+	}
+	__syncthreads();
+	if(threadIdx.x ==0){
+		centers[blockIdx.x].x=(double)avgx/(double)n;
+		centers[blockIdx.x].y=(double)avgy/(double)n;
 	}
 	
 }
 
-__global__ void kluster(day* data, day* centers, day ** clusters){
-
-
+__global__ void cluster(day* data, center* centers, int k, int numDays, int * s){
+	int numT=gridDim.x*blockDim.x;
+	int i=0;
+	int index;
+	while((index=blockIdx.x * threadIdx.x + numT*i) < numDays){
+		double min=1000;
+		for( int j=0; j< k; j++){
+			double x=data[index].high-centers[j].x;
+			x=x*x;
+			double y=data[index].low-centers[j].y;
+			y=y*y;
+			double dist=sqrt(x+y);
+			if(dist< min){
+				min=dist;
+				data[index].cluster=j;
+				*s++;
+			}		
+		}
+		i++;
+	}
 }
 
 int main(int  argc, char *argv[]) {
@@ -52,7 +83,6 @@ int main(int  argc, char *argv[]) {
 		return 1;
     }
     day * data;
-    char c=' ';
     data=(day*)malloc(sizeof(struct day));
     while((fgetc(fp))!='\n'){}//getting rid of the title line of the file
     
@@ -71,22 +101,59 @@ int main(int  argc, char *argv[]) {
 		data[numDays-1].low=low;
 		data[numDays-1].month=month;
 		data[numDays-1].year=year;
+		data[numDays-1].cluster=-1;
     }
-    day * d_data;
     //declares data for device
+    day * d_data;
     cudaMalloc((void **)&d_data, sizeof(struct day)*numDays);
-    cudaMemcpy(d_data, data, sizeof(struct day)*numDays);
-  
+    cudaMemcpy(d_data, data, sizeof(struct day)*numDays, cudaMemcpyHostToDevice);
     
+    //create centers 
+    center * centers;
+    centers=(center*)malloc(sizeof(struct center)* k);
+    for(int i=0; i<k; i++){//initilize centers to random data points
+	centers[i].x=data[numDays/(i+2)].high;
+	centers[i].y=data[numDays/(i+2)].low;
 
+    } 
+    
+    //create centers for device
+    center * d_centers;
+    cudaMalloc((void **)&d_centers, sizeof(struct center) *k);
+    cudaMemcpy(d_centers, centers, sizeof(struct center) *k, cudaMemcpyHostToDevice);
+    
+    int temp = 1093; //random number
+    int * s=&temp;
+
+    int * d_s;//variable to count how many data points change clusters between iterations
+    cudaMalloc((void **)&d_s, sizeof(int));
+
+    while(*s>0){
+	*s=0;//reset s value
+	cudaMemcpy(d_s, s, sizeof(int), cudaMemcpyHostToDevice);//reset d_s value
+        int numB=numDays/512;
+	cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
+	cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
+	if(s>0){//compute new centers if any clusters changed
+		int numT=((numDays/k)/32)*32 //assigns highest 
+ 		numT>512 ? numT=512 : numT=numT;
+		setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
+	}
+	printf("total threads=%d\n",*s);
+    }
+    
+    //TODO copy data back from device and then print and manipulate
     
        
  // cudaMemcpy(a, d_a, size, cudaMemcpyDeviceToHost);
     
 
     // Cleanup
-     
+   /* cudaFree(d_centers);
+    cudaFree(d_s); 
     cudaFree(d_data);
     free(data); 
+    free(s);
+    free(centers);*/
     return 0;
 }
