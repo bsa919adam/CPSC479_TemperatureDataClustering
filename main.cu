@@ -137,7 +137,7 @@ int main(int  argc, char *argv[]) {
     cudaMalloc((void **)&d_s, sizeof(int));
     printf("%d\n", numDays);
     int d=0;
-    while(*s>0 && d<10){
+    while(*s>0 ){
 	*s=0;//reset s value
 	cudaMemcpy(d_s, s, sizeof(int), cudaMemcpyHostToDevice);//reset d_s value
         int numB=numDays/512;
