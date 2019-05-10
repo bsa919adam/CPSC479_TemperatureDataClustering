@@ -147,6 +147,10 @@ int main(int  argc, char *argv[]) {
  		numT>512 ? numT=512 : numT=numT;
 		printf("ceneters set anew\n");
 		setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
+		cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
+		for( int h=0; h<k; h++){
+			printf("x=%f y=%f\n", centers[h].x, centers[h].y);	
+		}
 	}
 	printf("total threads=%d\n",*s);
     }
