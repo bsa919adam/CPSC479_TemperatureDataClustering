@@ -76,7 +76,21 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 		i++;
 	} 
 }
-
+__global__ void processData(int* data, int * month_data, int k, int numDays){
+	int i=0;
+	int month_index = blockIdx.x * 12 + threadIdx.x; //index for month_data
+	int data_index;//index for data
+	int month = threadIdx.x + 1;//month to look for
+	int cluster = blockIdx.x;//cluster to look for
+	
+	while((data_index = threadIdx.y + blockDim.y * i++) < numDays){
+	
+		if(data[data_index].cluster == cluster && data[data_index].month == month ){
+			atomicAdd(&month_data[month_index], 1);
+		}
+		
+	}
+}
 int main(int  argc, char *argv[]) {
     printf("begin checks\n");
     if(argc < 3){ //checcks for proper number of Args
@@ -114,8 +128,10 @@ int main(int  argc, char *argv[]) {
 		data[numDays-1].month=month;
 		data[numDays-1].year=year;
 		data[numDays-1].cluster=-1;
-    }
-    fclose(fp);
+		}
+		
+		fclose(fp);//close file
+		
     //declares data for device
     day * d_data;
     cudaMalloc((void **)&d_data, sizeof(struct day)*numDays);
@@ -125,8 +141,8 @@ int main(int  argc, char *argv[]) {
     center * centers;
     centers=(center*)malloc(sizeof(struct center)* k);
     for(int i=0; i<k; i++){//initilize centers to random data points
-	centers[i].x=data[numDays/(i+2)].high;
-	centers[i].y=data[numDays/(i+2)].low;
+			centers[i].x=data[numDays/(i+2)].high;
+			centers[i].y=data[numDays/(i+2)].low;
 
     } 
     
@@ -143,37 +159,62 @@ int main(int  argc, char *argv[]) {
     
     
     while(*s>0 ){
-	*s=0;//reset s value
-	int numB=numDays/512;
-	cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
-	cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
-	if(*s>0){//compute new centers if any clusters changed
-		int numT=((numDays/k)/32)*32; //assigns highest 
- 		numT>512 ? numT=512 : numT=numT;
-		setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
-		/*cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
-		for( int h=0; h<k; h++){
-			printf("x=%f y=%f\n", centers[h].x, centers[h].y);	
-		}*/
-	}
-	
-	
-    }
-    cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
-    fp=fopen("output.csv", "w");
-    for(int i=0; i<k; i++){
-	fprintf(fp, "Cluster %d,Center,x=%f, y=%f\nDate,High,Low\n", i+1, centers[i].x, centers[i].y);
-	for(int j=0; j<numDays; j++){
-		if(i==data[j].cluster){
-			fprintf(fp, "%d/%d/%d,%f,%f,%d\n", data[j].month, data[j].date, data[j].year, data[j].high,data[j].low, data[j].cluster);
-		}
-	}
-	fprintf(fp,"\n\n");
-    }
-    
-       
+	  	*s=0;//reset s value
+			int numB=numDays/512;
 
-    
+			cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
+		
+			cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
+			
+			if(*s>0){//compute new centers if any clusters changed
+				int numT=((numDays/k)/32)*32; //assigns highest 
+				numT>512 ? numT=512 : numT=numT;//checks that numt doesn't exceed 512
+				
+				setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
+			
+				/*cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
+				for( int h=0; h<k; h++){
+					printf("x=%f y=%f\n", centers[h].x, centers[h].y);	
+				}*/
+			}	
+		}
+		//copy data back to device for printing
+    cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
+		//open file for output
+		fp=fopen("output.csv", "w");
+		
+		//print data to output in csv format
+		for(int i=0; i<k; i++){
+			fprintf(fp, "Cluster %d,Center,x=%f, y=%f\nDate,High,Low\n", i+1, centers[i].x, centers[i].y);
+			for(int j=0; j<numDays; j++){
+				if(i==data[j].cluster){
+					fprintf(fp, "%d/%d/%d,%f,%f,%d\n", data[j].month, data[j].date, data[j].year, data[j].high,data[j].low, data[j].cluster);
+				}
+			}
+			fprintf(fp,"\n\n");
+    }
+		//pointer to single dimensional array that is to 
+		//hold summary of many days of each month are in each
+		int * month_data;
+		month_data=malloc(k*12*sizeof(int))
+		int * d_month_data;//device copy
+		cudaMalloc((void **)&d_month_data, k*12*sizeof(int) )
+		
+		dim3 threads(12, 32);
+		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
+		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
+		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,OCT,NOV,DEC\n")
+		printf("Cluster JAN FEB MAR APR MAY JUN JUL AUG OCT NOV DEC\n")
+		for( int i = 0; i< 12; i++){
+			fprintf(fp, "%d", i+1);
+			printf("%d", i+1);
+			for( int j = 0; j < k; j++){
+				fprintf(fp, ",%d",month_data[i * 12 + j]);
+				printf(" %d",month_data[i * 12 + j]);
+			}
+			fprintf(fp, "\n");
+			printf("\n");
+		}
 
     // Cleanup
    /* cudaFree(d_centers);
