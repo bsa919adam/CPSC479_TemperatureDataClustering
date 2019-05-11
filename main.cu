@@ -210,7 +210,7 @@ int main(int  argc, char *argv[]) {
 			printf("%d", i+1);
 			for( int j = 0; j < k; j++){
 				fprintf(fp, ",%d",month_data[i * 12 + j]);
-				printf("%d",month_data[i * 12 + j]);
+				printf(" %d",month_data[i * 12 + j]);
 			}
 			fprintf(fp, "\n");
 			printf("\n");
