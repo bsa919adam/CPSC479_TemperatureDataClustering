@@ -64,8 +64,10 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 			double dist=sqrt(x+y);
 			if(dist< min){
 				min=dist;
-				data[index].cluster=j;
-				atomicAdd(s, 1);
+				if(data[index].cluster!=j){
+					atomicAdd(s, 1);
+					data[index].cluster=j;
+				}
 			}		
 		}
 		i++;
