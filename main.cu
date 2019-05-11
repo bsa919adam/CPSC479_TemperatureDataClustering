@@ -83,7 +83,7 @@ __global__ void processData(day* data, int * month_data, int k, int numDays){
 	int month = threadIdx.x + 1;//month to look for
 	int cluster = blockIdx.x;//cluster to look for
 	
-	while((data_index = threadIdx.y + blockDim.y * i++) < numDays){
+	while((data_index = threadIdx.y + blockDim.y * gridDim.y i++) < numDays){
 	
 		if((data[data_index].cluster == cluster) && (data[data_index].month == month) ){
 			atomicAdd(&month_data[month_index], 1);
@@ -203,11 +203,14 @@ int main(int  argc, char *argv[]) {
 		dim3 threads(12, 32);
 		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
 		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
+	
 		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC\n");
 		printf("%6s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
+		
 		for( int i = 0; i< k; i++){
 			fprintf(fp, "%d", i+1);
 			printf("%6d", i+1);
+			
 			for( int j = 0; j < 12; j++){
 				fprintf(fp, ",%d",month_data[i * 12 + j]);
 				printf("%5d",month_data[i * 12 + j]);
