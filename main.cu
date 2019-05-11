@@ -83,7 +83,7 @@ __global__ void processData(day* data, int * month_data, int k, int numDays){
 	int month = threadIdx.x + 1;//month to look for
 	int cluster = blockIdx.x;//cluster to look for
 	
-	while((data_index = threadIdx.y + blockDim.y * gridDim.y i++) < numDays){
+	while((data_index = threadIdx.y + blockDim.y * gridDim.y *i++) < numDays){
 	
 		if((data[data_index].cluster == cluster) && (data[data_index].month == month) ){
 			atomicAdd(&month_data[month_index], 1);
