@@ -203,8 +203,8 @@ int main(int  argc, char *argv[]) {
 		dim3 threads(12, 32);
 		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
 		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
-		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,OCT,NOV,DEC\n")
-		printf("Cluster JAN FEB MAR APR MAY JUN JUL AUG OCT NOV DEC\n")
+		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,OCT,NOV,DEC\n");
+		printf("Cluster JAN FEB MAR APR MAY JUN JUL AUG OCT NOV DEC\n");
 		for( int i = 0; i< 12; i++){
 			fprintf(fp, "%d", i+1);
 			printf("%d", i+1);
