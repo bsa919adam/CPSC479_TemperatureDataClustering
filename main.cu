@@ -76,7 +76,7 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 		i++;
 	} 
 }
-__global__ void processData(int* data, int * month_data, int k, int numDays){
+__global__ void processData(day* data, int * month_data, int k, int numDays){
 	int i=0;
 	int month_index = blockIdx.x * 12 + threadIdx.x; //index for month_data
 	int data_index;//index for data
@@ -85,7 +85,7 @@ __global__ void processData(int* data, int * month_data, int k, int numDays){
 	
 	while((data_index = threadIdx.y + blockDim.y * i++) < numDays){
 	
-		if(data[data_index].cluster == cluster && data[data_index].month == month ){
+		if((data[data_index].cluster == cluster) && (data[data_index].month == month) ){
 			atomicAdd(&month_data[month_index], 1);
 		}
 		
@@ -196,9 +196,9 @@ int main(int  argc, char *argv[]) {
 		//pointer to single dimensional array that is to 
 		//hold summary of many days of each month are in each
 		int * month_data;
-		month_data=malloc(k*12*sizeof(int))
+		month_data=(int*)malloc(k*12*sizeof(int));
 		int * d_month_data;//device copy
-		cudaMalloc((void **)&d_month_data, k*12*sizeof(int) )
+		cudaMalloc((void **)&d_month_data, k*12*sizeof(int) );
 		
 		dim3 threads(12, 32);
 		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
