@@ -221,7 +221,7 @@ int main(int  argc, char *argv[]) {
     cudaFree(d_s); 
 		cudaFree(d_data);
 		cudaFree(d_month_data);
-    // free(data); 
+    free(data); 
     // free(s);
 		// free(centers);
 		// free(month_data);
