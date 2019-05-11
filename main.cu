@@ -217,13 +217,13 @@ int main(int  argc, char *argv[]) {
 		}
 
     // Cleanup
-    // cudaFree(d_centers);
-    // cudaFree(d_s); 
-		// cudaFree(d_data);
-		// cudaFree(d_month_data);
-    free(data); 
-    free(s);
-		free(centers);
-		free(month_data);
+    cudaFree(d_centers);
+    cudaFree(d_s); 
+		cudaFree(d_data);
+		cudaFree(d_month_data);
+    // free(data); 
+    // free(s);
+		// free(centers);
+		// free(month_data);
     return 0;
 }
