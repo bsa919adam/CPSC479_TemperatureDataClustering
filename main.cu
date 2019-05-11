@@ -205,10 +205,10 @@ int main(int  argc, char *argv[]) {
 		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
 		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC\n");
 		printf("%6s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
-		for( int i = 0; i< 12; i++){
+		for( int i = 0; i< k; i++){
 			fprintf(fp, "%d", i+1);
 			printf("%6d", i+1);
-			for( int j = 0; j < k; j++){
+			for( int j = 0; j < 12; j++){
 				fprintf(fp, ",%d",month_data[i * 12 + j]);
 				printf("%5d",month_data[i * 12 + j]);
 			}
