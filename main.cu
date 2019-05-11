@@ -53,6 +53,7 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 	int numT=gridDim.x*blockDim.x;
 	int i=0;
 	int index;
+	int cluster;
 	*s=0;
 	while((index=threadIdx.x +blockIdx.x * blockDim.x+ numT*i) < numDays){
 		double min=1000;
@@ -64,11 +65,13 @@ __global__ void cluster(day* data, center* centers, int k, int numDays, int * s)
 			double dist=sqrt(x+y);
 			if(dist< min){
 				min=dist;
-				if(data[index].cluster!=j){
-					atomicAdd(s, 1);
-					data[index].cluster=j;
-				}
+				cluster=j;
+				
 			}		
+		}
+		if(data[index].cluster!=cluster){
+			atomicAdd(s, 1);
+			data[index].cluster=cluster;
 		}
 		i++;
 	} 
