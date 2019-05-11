@@ -135,31 +135,29 @@ int main(int  argc, char *argv[]) {
     cudaMalloc((void **)&d_centers, sizeof(struct center) *k);
     cudaMemcpy(d_centers, centers, sizeof(struct center) *k, cudaMemcpyHostToDevice);
     
-    int temp = 1093; //random number
+    int temp = 1093; //random number non zero number
     int * s=&temp;
 
     int * d_s;//variable to count how many data points change clusters between iterations
     cudaMalloc((void **)&d_s, sizeof(int));
-    printf("%d\n", numDays);
-    int d=0;
+    
+    
     while(*s>0 ){
 	*s=0;//reset s value
-	cudaMemcpy(d_s, s, sizeof(int), cudaMemcpyHostToDevice);//reset d_s value
-        int numB=numDays/512;
+	int numB=numDays/512;
 	cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
 	cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
 	if(*s>0){//compute new centers if any clusters changed
 		int numT=((numDays/k)/32)*32; //assigns highest 
  		numT>512 ? numT=512 : numT=numT;
-		printf("ceneters set anew\n");
 		setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
-		cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
+		/*cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
 		for( int h=0; h<k; h++){
 			printf("x=%f y=%f\n", centers[h].x, centers[h].y);	
-		}
+		}*/
 	}
-	printf("total threads=%d\n",*s);
-	d++;
+	
+	
     }
     cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
     fp=fopen("output.csv", "w");
@@ -174,7 +172,7 @@ int main(int  argc, char *argv[]) {
     }
     
        
- // cudaMemcpy(a, d_a, size, cudaMemcpyDeviceToHost);
+
     
 
     // Cleanup
