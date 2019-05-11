@@ -204,13 +204,13 @@ int main(int  argc, char *argv[]) {
 		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
 		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
 		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC\n");
-		printf("%10s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
+		printf("%6s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
 		for( int i = 0; i< 12; i++){
 			fprintf(fp, "%d", i+1);
 			printf("%d", i+1);
 			for( int j = 0; j < k; j++){
 				fprintf(fp, ",%d",month_data[i * 12 + j]);
-				printf(" %d",month_data[i * 12 + j]);
+				printf("%d",month_data[i * 12 + j]);
 			}
 			fprintf(fp, "\n");
 			printf("\n");
