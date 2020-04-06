@@ -92,140 +92,136 @@ __global__ void processData(day* data, int * month_data, int k, int numDays){
 	}
 }
 int main(int  argc, char *argv[]) {
-    printf("begin checks\n");
-    if(argc < 3){ //checcks for proper number of Args
-			printf("Missing Arguments");
-			return 1;
-    }
-    int k=atoi(argv[1]);
-    if(k <1){ //checks that k value is greater than 1
-			printf("invalid number of Clusters");
-			return 1;
-    }
-    FILE *fp;
-    fp=fopen(argv[2], "r");
-    if(fp==NULL){ //chechs that the file opened properly
-			perror("Failed to open file:");
-			return 1;
-    }
-    day * data;
-    data=(day*)malloc(sizeof(struct day));
-    while((fgetc(fp))!='\n'){}//getting rid of the title line of the file
+	printf("begin checks\n");
+    	if(argc < 3){ //checcks for proper number of Args
+		printf("Missing Arguments");
+		return 1;
+    	}
+    	int k=atoi(argv[1]);
+    	if(k <1){ //checks that k value is greater than 1
+		printf("invalid number of Clusters");
+		return 1;
+  	}
+    	FILE *fp;
+    	fp=fopen(argv[2], "r");
+    	if(fp==NULL){ //chechs that the file opened properly
+		perror("Failed to open file:");
+		return 1;
+    	}
+    	day * data;
+    	data=(day*)malloc(sizeof(struct day));
+    	while((fgetc(fp))!='\n'){}//getting rid of the title line of the file
     
-    int numDays=0;
-    int high=-1;
-    int low;
-    int date;
-    int month;
-    int year;
-    char  station[15];
-    while(fscanf(fp,"%[^,],%d/%d/%d,%d,%d",station,&month, &date, &year, &high, &low)==6){//populates data from file
-			numDays++;
-			data=(day*)realloc(data, sizeof(struct day) * numDays);
-			data[numDays-1].date=date;
-			data[numDays-1].high=high;
-			data[numDays-1].low=low;
-			data[numDays-1].month=month;
-			data[numDays-1].year=year;
-			data[numDays-1].cluster=-1;
-		}
+    	int numDays=0;
+    	int high=-1;
+    	int low;
+    	int date;
+    	int month;
+    	int year;
+    	char  station[15];
+    	while(fscanf(fp,"%[^,],%d/%d/%d,%d,%d",station,&month, &date, &year, &high, &low)==6){//populates data from file
+		numDays++;
+		data=(day*)realloc(data, sizeof(struct day) * numDays);
+		data[numDays-1].date=date;
+		data[numDays-1].high=high;
+		data[numDays-1].low=low;
+		data[numDays-1].month=month;
+		data[numDays-1].year=year;
+		data[numDays-1].cluster=-1;
+	}
 		
-		fclose(fp);//close file
+	fclose(fp);//close file
 		
-    //declares data for device
-    day * d_data;
-    cudaMalloc((void **)&d_data, sizeof(struct day)*numDays);
-    cudaMemcpy(d_data, data, sizeof(struct day)*numDays, cudaMemcpyHostToDevice);
+    	//declares data for device
+    	day * d_data;
+    	cudaMalloc((void **)&d_data, sizeof(struct day)*numDays);
+    	cudaMemcpy(d_data, data, sizeof(struct day)*numDays, cudaMemcpyHostToDevice);
     
-    //create centers 
-    center * centers;
-    centers=(center*)malloc(sizeof(struct center)* k);
-    for(int i=0; i<k; i++){//initilize centers to random data points
-			centers[i].x=data[numDays/(i+2)].high;
-			centers[i].y=data[numDays/(i+2)].low;
+    	//create centers 
+    	center * centers;
+    	centers=(center*)malloc(sizeof(struct center)* k);
+    	for(int i=0; i<k; i++){//initilize centers to random data points
+		centers[i].x=data[numDays/(i+2)].high;
+		centers[i].y=data[numDays/(i+2)].low;
 
-    } 
+    	} 
     
-    //create centers for device
-    center * d_centers;
-    cudaMalloc((void **)&d_centers, sizeof(struct center) *k);
-    cudaMemcpy(d_centers, centers, sizeof(struct center) *k, cudaMemcpyHostToDevice);
+    	//create centers for device
+    	center * d_centers;
+    	cudaMalloc((void **)&d_centers, sizeof(struct center) *k);
+    	cudaMemcpy(d_centers, centers, sizeof(struct center) *k, cudaMemcpyHostToDevice);
     
-    int temp = 1093; //random number non zero number
-    int * s=&temp;
+    	int temp = 1093; //random number non zero number
+    	int * s=&temp;
 
-    int * d_s;//variable to count how many data points change clusters between iterations
-    cudaMalloc((void **)&d_s, sizeof(int));
+    	int * d_s;//variable to count how many data points change clusters between iterations
+    	cudaMalloc((void **)&d_s, sizeof(int));
     
     
-    while(*s>0 ){
-	  	*s=0;//reset s value
-			int numB=numDays/512;
+    	while(*s>0 ){
+		*s=0;//reset s value
+		int numB=numDays/512;
 
-			cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
+		cluster<<<numB, 512>>>(d_data, d_centers, k, numDays, d_s);//cluster data
 		
-			cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
+		cudaMemcpy(s, d_s, sizeof(int), cudaMemcpyDeviceToHost);//retrieve d_S value from device
 			
-			if(*s>0){//compute new centers if any clusters changed
-				int numT=((numDays/k)/32)*32; //assigns highest 
-				numT>512 ? numT=512 : numT=numT;//checks that numt doesn't exceed 512
+		if(*s>0){//compute new centers if any clusters changed
+			int numT=((numDays/k)/32)*32; //assigns highest 
+			numT>512 ? numT=512 : numT=numT;//checks that numt doesn't exceed 512
 				
-				setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
-			
-				/*cudaMemcpy(centers, d_centers, sizeof(struct center)*k, cudaMemcpyDeviceToHost);
-				for( int h=0; h<k; h++){
-					printf("x=%f y=%f\n", centers[h].x, centers[h].y);	
-				}*/
-			}	
-		}
+			setCenters<<<k, numT>>>(d_data, d_centers, k, numDays);
+				
+		}	
+	}
 		//copy data back to device for printing
-    cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
-		//open file for output
-		fp=fopen("output.csv", "w");
+    	cudaMemcpy(data, d_data, sizeof(struct day)*numDays, cudaMemcpyDeviceToHost);
+	//open file for output
+	fp=fopen("output.csv", "w");
 		
-		//print data to output in csv format
-		for(int i=0; i<k; i++){
-			fprintf(fp, "Cluster %d,Center,x=%f, y=%f\nDate,High,Low\n", i+1, centers[i].x, centers[i].y);
-			for(int j=0; j<numDays; j++){
-				if(i==data[j].cluster){
-					fprintf(fp, "%d/%d/%d,%f,%f,%d\n", data[j].month, data[j].date, data[j].year, data[j].high,data[j].low, data[j].cluster);
-				}
+	//print data to output in csv format
+	for(int i=0; i<k; i++){
+		fprintf(fp, "Cluster %d,Center,x=%f, y=%f\nDate,High,Low\n", i+1, centers[i].x, centers[i].y);
+		for(int j=0; j<numDays; j++){
+			if(i==data[j].cluster){
+				fprintf(fp, "%d/%d/%d,%f,%f,%d\n", data[j].month, data[j].date, data[j].year, data[j].high,data[j].low, data[j].cluster);
 			}
-			fprintf(fp,"\n\n");
-    }
-		//pointer to single dimensional array that is to 
-		//hold summary of many days of each month are in each
-		int * month_data;
-		month_data=(int*)malloc(k*12*sizeof(int));
-		int * d_month_data;//device copy
-		cudaMalloc((void **)&d_month_data, k*12*sizeof(int) );
-		
-		dim3 threads(12, 32);
-		processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
-		cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
-	
-		fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC\n");
-		printf("%6s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
-		
-		for( int i = 0; i< k; i++){
-			fprintf(fp, "%d", i+1);
-			printf("%6d", i+1);
-			
-			for( int j = 0; j < 12; j++){
-				fprintf(fp, ",%d",month_data[i * 12 + j]);
-				printf("%5d",month_data[i * 12 + j]);
-			}
-			fprintf(fp, "\n");
-			printf("\n");
 		}
+		fprintf(fp,"\n\n");
+    	}
+	//pointer to single dimensional array that is to 
+	//hold summary of many days of each month are in each
+	int * month_data;
+	month_data=(int*)malloc(k*12*sizeof(int));
+	int * d_month_data;//device copy
+	cudaMalloc((void **)&d_month_data, k*12*sizeof(int) );
+		
+	dim3 threads(12, 32);
+	processData<<<k, threads>>>(d_data, d_month_data, k, numDays );
+	cudaMemcpy(month_data, d_month_data, k * 12 *sizeof(int), cudaMemcpyDeviceToHost);
+	
+	fprintf(fp, "Cluster,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC\n");
+	printf("%6s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s\n","Cluster","JAN", "FEB", "MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
+		
+	for( int i = 0; i< k; i++){
+		fprintf(fp, "%d", i+1);
+		printf("%6d", i+1);
+		
+		for( int j = 0; j < 12; j++){
+			fprintf(fp, ",%d",month_data[i * 12 + j]);
+			printf("%5d",month_data[i * 12 + j]);
+		}
+		fprintf(fp, "\n");
+		printf("\n");
+	}
 
-    // Cleanup
-    cudaFree(d_centers);
-    cudaFree(d_s); 
-		cudaFree(d_data);
-		cudaFree(d_month_data);
-    free(data); 
-    free(centers);
-		free(month_data);
-    return 0;
+    	// Cleanup
+    	cudaFree(d_centers);
+   	cudaFree(d_s); 
+	cudaFree(d_data);
+	cudaFree(d_month_data);
+    	free(data); 
+    	free(centers);
+	free(month_data);
+    	return 0;
 }
